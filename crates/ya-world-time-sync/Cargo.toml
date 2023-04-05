@@ -1,0 +1,12 @@
+[package]
+name = "ya-world-time-sync"
+description = "Sync your system time with a NTP server"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ya-world-time = { path = "../.." }
+env_logger = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros", "net"] }
