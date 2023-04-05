@@ -373,6 +373,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f89bbd9c220f1b4bc27f94aa4d1cfd0a614b6001955f7c7ce1d818e08f18981b"
 dependencies = [
+ "chrono",
  "no-std-net",
 ]
 
@@ -718,7 +719,11 @@ dependencies = [
 name = "ya-world-time-sync"
 version = "0.1.1"
 dependencies = [
+ "chrono",
  "env_logger",
+ "log",
+ "sntpc",
  "tokio",
+ "winapi",
  "ya-world-time",
 ]

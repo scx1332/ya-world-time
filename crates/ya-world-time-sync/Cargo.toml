@@ -10,3 +10,7 @@ license.workspace = true
 ya-world-time = { path = "../.." }
 env_logger = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros", "net"] }
+sntpc = { workspace = true, features = ["utils"] }
+log = { workspace = true }
+chrono = { workspace = true}
+winapi = { workspace = true }
