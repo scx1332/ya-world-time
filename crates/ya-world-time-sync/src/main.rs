@@ -1,14 +1,14 @@
 mod sync_time;
 
 use crate::sync_time::sync_time;
+use chrono::{Datelike, Timelike, Utc};
 use sntpc::utils::update_system_time;
 use std::env;
 use std::ops::Sub;
-use chrono::{Datelike, Timelike, Utc};
 use winapi::shared::minwindef::{BOOL, FALSE, WORD};
 use ya_world_time::world_time::world_time;
 
-fn set_system_time_windows(date_time: chrono::DateTime<Utc>){
+fn set_system_time_windows(date_time: chrono::DateTime<Utc>) {
     //fix rounding to millis
     date_time.sub(chrono::Duration::microseconds(500));
     let s = winapi::um::minwinbase::SYSTEMTIME {
@@ -21,9 +21,7 @@ fn set_system_time_windows(date_time: chrono::DateTime<Utc>){
         wSecond: date_time.second() as WORD,
         wMilliseconds: (date_time.nanosecond() / 1000000) as WORD,
     };
-    let res = unsafe {
-        winapi::um::sysinfoapi::SetSystemTime(&s)
-    };
+    let res = unsafe { winapi::um::sysinfoapi::SetSystemTime(&s) };
     if res == 0 {
         panic!("Set system time failed.");
     }

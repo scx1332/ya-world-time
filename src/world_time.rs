@@ -1,3 +1,4 @@
+use dns_lookup::lookup_host;
 use sntpc::{Error, NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result};
 use std::mem::MaybeUninit;
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
@@ -111,7 +112,13 @@ struct Measurement {
 }
 
 fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
-    let servs = [
+    let mut servs: Vec<String> = lookup_host("time.google.com")
+        .unwrap()
+        .iter()
+        .map(|ip| format!("{}:123", ip))
+        .collect();
+
+    /*let servs = [
         "ntp.qix.ca:123",
         "mmo1.ntp.se:123",
         "ntp.nict.jp:123",
@@ -122,22 +129,25 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
         "216.239.35.8:123",
         "216.239.35.4:123",
         "216.239.35.12:123",
+        "162.159.200.1:123",
+        "162.159.200.123:123",
+        "158.75.5.245:123",
+        "194.146.251.100:123",
+        "114.118.7.163:123",
         "time.apple.com:123",
         "time.facebook.com:123",
         "time.fu-berlin.de:123",
         "ntp.fizyka.umk.pl:123",
-    ];
+    ];*/
     let mut avg_difference = 0;
     let mut number_of_reads = 0;
 
     let mut results: Vec<Server> = Vec::new();
-    for serv in servs.iter() {
+    for serv in servs {
         results.push(Server {
-            join_handle: std::thread::spawn(|| get_time_from_single_serv(serv)),
-            addr: serv.to_string(),
+            addr: serv.clone(),
+            join_handle: std::thread::spawn(move || get_time_from_single_serv(&serv)),
         });
-
-        println!("{}", serv);
     }
 
     let mut unjoined = results;
