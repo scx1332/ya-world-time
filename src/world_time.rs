@@ -2,7 +2,7 @@ use std::fmt::Display;
 use dns_lookup::lookup_host;
 use sntpc::{Error, NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result};
 use std::mem::MaybeUninit;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket};
+use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::net::IpAddr::{V4, V6};
 use std::ops::Add;
 use std::sync::{Arc, Mutex, Once};
@@ -113,8 +113,7 @@ struct ServerInfo {
 
 impl Display for ServerInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{} [{}]", self.ip_addr, self.port, self.host_name);
-        Ok(())
+        write!(f, "{}:{} [{}]", self.ip_addr, self.port, self.host_name)
     }
 }
 
@@ -146,15 +145,15 @@ fn add_servers_from_host(time_servers: &mut Vec<ServerInfo>, host: &str) {
                 }
             }
         }
-        Err(err) => {
+        Err(_err) => {
             log::warn!("Unable to resolve host: {host}");
         }
     }
 }
 
 fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
-    let MAX_AT_ONCE = 50;
-    let MAX_SERVERS = 100;
+    const MAX_AT_ONCE: usize = 50;
+    const MAX_SERVERS: usize = 100;
 
     let mut time_servers: Vec<ServerInfo> = vec![];
     add_servers_from_host(&mut time_servers, "time.google.com");
@@ -177,7 +176,7 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
         time_servers.truncate(MAX_SERVERS);
     }
     let mut number_checked = 0;
-    let mut chunked : Vec<Vec<ServerInfo>> = time_servers.chunks(MAX_AT_ONCE).map(|s| s.into()).collect();
+    let chunked : Vec<Vec<ServerInfo>> = time_servers.chunks(MAX_AT_ONCE).map(|s| s.into()).collect();
     for chunk in chunked {
         log::info!("Checking [{}..{}] servers out of {}", number_checked, number_checked + chunk.len(), time_servers.len());
         number_checked += chunk.len();
@@ -194,8 +193,8 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
         let current_time = std::time::Instant::now();
         loop {
             let mut idxs = Vec::new();
-            for idx in 0..unjoined.len() {
-                if unjoined[idx].join_handle.is_finished() {
+            for (idx, item) in unjoined.iter().enumerate() {
+                if item.join_handle.is_finished() {
                     idxs.push(idx);
                 }
             }

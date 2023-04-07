@@ -12,7 +12,7 @@ pub fn set_system_time_linux(date_time: DateTime<Utc>) -> Result<(), SystemSetTi
     if res == 0 {
         return Ok(())
     }
-    if res == EFAULT {
+    if res == libc::EFAULT {
         return Err(SystemSetTimeError::PermissionError);
     }
     Err(SystemSetTimeError::OtherError(format!(
