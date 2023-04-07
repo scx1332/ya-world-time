@@ -1,7 +1,8 @@
 use dns_lookup::lookup_host;
 use sntpc::{Error, NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result};
 use std::mem::MaybeUninit;
-use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket};
+use std::net::IpAddr::{V4, V6};
 use std::ops::Add;
 use std::sync::{Arc, Mutex, Once};
 use std::thread::JoinHandle;
@@ -111,12 +112,31 @@ struct Measurement {
     result: NtpResult,
 }
 
+fn add_servers_from_host(time_servers: &mut Vec<String>, host: &str) {
+    match lookup_host(host) {
+        Ok(ip_addrs) => {
+            for ip_addr in ip_addrs {
+                match ip_addr {
+                    V4(addr) => {
+                        log::debug!("Adding IPv4 address: {addr} resolved from {host}");
+                        time_servers.push(format!("{addr}:123"));
+                    },
+                    V6(addr) => {
+                        log::debug!("Ignoring IPv6 address: {addr} resolved from {host}");
+                    }
+                }
+            }
+        }
+        Err(err) => {
+            log::warn!("Unable to resolve host: {host}");
+        }
+    }
+}
+
 fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
-    let servs: Vec<String> = lookup_host("time.google.com")
-        .unwrap()
-        .iter()
-        .map(|ip| format!("{}:123", ip))
-        .collect();
+    let mut time_servers = vec![];
+    add_servers_from_host(&mut time_servers, "time.google.com");
+
 
     /*let servs = [
         "ntp.qix.ca:123",
@@ -143,7 +163,7 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
     let mut number_of_reads = 0;
 
     let mut results: Vec<Server> = Vec::new();
-    for serv in servs {
+    for serv in time_servers {
         results.push(Server {
             addr: serv.clone(),
             join_handle: std::thread::spawn(move || get_time_from_single_serv(&serv)),
