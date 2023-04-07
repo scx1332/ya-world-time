@@ -245,7 +245,6 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
         }
     }
 
-    let mut avg_error = 0.0;
     measurements.sort_by(|a, b| a.result.roundtrip.cmp(&b.result.roundtrip));
 
     if number_of_reads > 0 {
@@ -261,8 +260,6 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
                 measurement.result.offset as f64 / 1000.0,
                 measurement.result.roundtrip as f64 / 1000.0
             );
-            avg_error += (measurement.result.offset as f64 - avg_difference as f64).powf(2.0f64);
-
             harmonic_sum += measurement.result.offset as f64
                 / (measurement.result.roundtrip as f64).powf(2.0f64);
             harmonic_norm += 1.0 / (measurement.result.roundtrip as f64).powf(2.0f64);
@@ -270,15 +267,17 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
         let harmonic_avg = harmonic_sum / harmonic_norm;
         let harmonic_error = (1.0 / harmonic_norm).sqrt();
 
+        let additional_systematic_error = 500.0;
+
         log::info!(
             "Difference estimation: {:.02}ms ± {:.02}ms",
-            harmonic_avg as f64 / 1000.0,
-            (harmonic_error + 0.5) / 1000.0 / 5.0
+            harmonic_avg / 1000.0,
+            (harmonic_error + additional_systematic_error) / 1000.0 / 5.0
         );
 
         WorldTimer {
             offset: avg_difference,
-            precision: Some(harmonic_error as i64 / 5),
+            precision: Some((harmonic_error + additional_systematic_error) as i64 / 5),
         }
     } else {
         log::warn!("No time servers available");
