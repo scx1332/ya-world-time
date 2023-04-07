@@ -268,16 +268,17 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
         let harmonic_error = (1.0 / harmonic_norm).sqrt();
 
         let additional_systematic_error = 500.0;
+        let roundtrip_to_error_multiplier = 5.0;
 
         log::info!(
             "Difference estimation: {:.02}ms ± {:.02}ms",
             harmonic_avg / 1000.0,
-            (harmonic_error + additional_systematic_error) / 1000.0 / 5.0
+            (harmonic_error / roundtrip_to_error_multiplier + additional_systematic_error) / 1000.0
         );
 
         WorldTimer {
             offset: avg_difference,
-            precision: Some((harmonic_error + additional_systematic_error) as i64 / 5),
+            precision: Some((harmonic_error / roundtrip_to_error_multiplier + additional_systematic_error) as i64),
         }
     } else {
         log::warn!("No time servers available");
