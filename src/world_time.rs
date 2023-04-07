@@ -1,9 +1,9 @@
-use std::fmt::Display;
 use dns_lookup::lookup_host;
 use sntpc::{Error, NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result};
+use std::fmt::Display;
 use std::mem::MaybeUninit;
-use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::net::IpAddr::{V4, V6};
+use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::ops::Add;
 use std::sync::{Arc, Mutex, Once};
 use std::thread::JoinHandle;
@@ -139,7 +139,7 @@ fn add_servers_from_host(time_servers: &mut Vec<ServerInfo>, host: &str) {
                             ip_addr: addr.to_string(),
                             host_name: host.to_string(),
                         });
-                    },
+                    }
                     V6(addr) => {
                         log::debug!("Ignoring IPv6 address: {addr} resolved from {host}");
                     }
@@ -170,22 +170,31 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
     let mut avg_difference = 0;
     let mut number_of_reads = 0;
 
-
     let mut measurements = Vec::new();
     if time_servers.len() > MAX_SERVERS {
         log::warn!("Too many servers, truncating to {}", MAX_SERVERS);
         time_servers.truncate(MAX_SERVERS);
     }
     let mut number_checked = 0;
-    let chunked : Vec<Vec<ServerInfo>> = time_servers.chunks(MAX_AT_ONCE).map(|s| s.into()).collect();
+    let chunked: Vec<Vec<ServerInfo>> =
+        time_servers.chunks(MAX_AT_ONCE).map(|s| s.into()).collect();
     for chunk in chunked {
-        log::info!("Checking [{}..{}] servers out of {}", number_checked, number_checked + chunk.len(), time_servers.len());
+        log::info!(
+            "Checking [{}..{}] servers out of {}",
+            number_checked,
+            number_checked + chunk.len(),
+            time_servers.len()
+        );
         number_checked += chunk.len();
         let mut results: Vec<Server> = Vec::new();
         for server_info in chunk {
             results.push(Server {
                 server_info: server_info.clone(),
-                join_handle: std::thread::spawn(move || get_time_from_single_serv(format!("{}:{}", server_info.ip_addr, server_info.port).as_str())),
+                join_handle: std::thread::spawn(move || {
+                    get_time_from_single_serv(
+                        format!("{}:{}", server_info.ip_addr, server_info.port).as_str(),
+                    )
+                }),
             });
         }
 
@@ -227,7 +236,8 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
             }
 
             if current_time.elapsed() > max_timeout {
-                let str_vec: Vec<ServerInfo> = unjoined.into_iter().map(|x| x.server_info).collect();
+                let str_vec: Vec<ServerInfo> =
+                    unjoined.into_iter().map(|x| x.server_info).collect();
                 log::debug!("Don't wait for other servers: {:?}", str_vec);
                 break;
             }
@@ -253,20 +263,28 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
             );
             avg_error += (measurement.result.offset as f64 - avg_difference as f64).powf(2.0f64);
 
-            harmonic_sum += measurement.result.offset as f64 / (measurement.result.roundtrip as f64).powf(2.0f64);
+            harmonic_sum += measurement.result.offset as f64
+                / (measurement.result.roundtrip as f64).powf(2.0f64);
             harmonic_norm += 1.0 / (measurement.result.roundtrip as f64).powf(2.0f64);
         }
         let harmonic_avg = harmonic_sum / harmonic_norm;
         let harmonic_error = (1.0 / harmonic_norm).sqrt();
 
-        log::info!("Difference estimation: {:.02}ms ± {:.02}ms", harmonic_avg as f64 / 1000.0, harmonic_error / 1000.0 / 5.0);
+        log::info!(
+            "Difference estimation: {:.02}ms ± {:.02}ms",
+            harmonic_avg as f64 / 1000.0,
+            (harmonic_error + 0.5) / 1000.0 / 5.0
+        );
 
         WorldTimer {
             offset: avg_difference,
-            precision: Some(harmonic_error as i64 / 5)
+            precision: Some(harmonic_error as i64 / 5),
         }
     } else {
         log::warn!("No time servers available");
-        WorldTimer { offset: 0, precision: None }
+        WorldTimer {
+            offset: 0,
+            precision: None,
+        }
     }
 }
