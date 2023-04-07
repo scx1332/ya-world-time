@@ -228,7 +228,7 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
 
             if current_time.elapsed() > max_timeout {
                 let str_vec: Vec<ServerInfo> = unjoined.into_iter().map(|x| x.server_info).collect();
-                log::warn!("Don't wait for other servers: {:?}", str_vec);
+                log::debug!("Don't wait for other servers: {:?}", str_vec);
                 break;
             }
             std::thread::sleep(Duration::from_millis(5));
@@ -239,12 +239,13 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
     measurements.sort_by(|a, b| a.result.roundtrip.cmp(&b.result.roundtrip));
 
     if number_of_reads > 0 {
+        log::info!("Total of servers responded: {}", number_of_reads);
         avg_difference /= number_of_reads;
 
         let mut harmonic_sum = 0.0;
         let mut harmonic_norm = 0.0;
         for measurement in measurements.iter() {
-            log::info!(
+            log::debug!(
                 "Server {}, Offset: {}ms, Roundtrip {}ms",
                 measurement.server_info,
                 measurement.result.offset as f64 / 1000.0,
@@ -258,14 +259,7 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
         let harmonic_avg = harmonic_sum / harmonic_norm;
         let harmonic_error = (1.0 / harmonic_norm).sqrt();
 
-        log::info!("Average difference: {}ms", harmonic_avg as f64 / 1000.0);
-        log::info!(
-            "Average roundtrip: {}ms",
-            harmonic_error / 1000.0
-        );
-        log::info!(
-            "Estimated precision: {}ms", harmonic_error / 1000.0 / 5.0
-        );
+        log::info!("Difference estimation: {:.02}ms ± {:.02}ms", harmonic_avg as f64 / 1000.0, harmonic_error / 1000.0 / 5.0);
 
         WorldTimer {
             offset: avg_difference,
