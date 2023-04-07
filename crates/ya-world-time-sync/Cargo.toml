@@ -14,3 +14,4 @@ sntpc = { workspace = true, features = ["utils"] }
 log = { workspace = true }
 chrono = { workspace = true}
 winapi = { workspace = true }
+libc = { workspace = true }
