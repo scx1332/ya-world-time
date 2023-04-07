@@ -153,7 +153,7 @@ fn add_servers_from_host(time_servers: &mut Vec<ServerInfo>, host: &str) {
 }
 
 fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
-    let MAX_AT_ONCE = 10;
+    let MAX_AT_ONCE = 50;
     let MAX_SERVERS = 100;
 
     let mut time_servers: Vec<ServerInfo> = vec![];
