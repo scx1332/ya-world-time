@@ -22,7 +22,8 @@ async fn main() -> std::io::Result<()> {
     let res = set_system_time(current_time);
     if let Err(err) = res {
         log::error!("Error occurred when settings system time: {}", err);
+    } else {
+        log::info!("System time set. Current time: {}", world_time().utc_time());
     }
-    log::info!("Current time: {}", world_time().utc_time());
     Ok(())
 }
