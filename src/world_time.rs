@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use dns_lookup::lookup_host;
 use sntpc::{Error, NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result};
 use std::mem::MaybeUninit;
@@ -103,23 +104,41 @@ pub fn init_world_time() {
     *world_time_wrapper().world_timer.lock().unwrap() = world_time;
 }
 
+#[derive(Debug, Clone)]
+struct ServerInfo {
+    port: u16,
+    ip_addr: String,
+    host_name: String,
+}
+
+impl Display for ServerInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{} [{}]", self.ip_addr, self.port, self.host_name);
+        Ok(())
+    }
+}
+
 struct Server {
-    addr: String,
+    server_info: ServerInfo,
     join_handle: JoinHandle<Result<NtpResult>>,
 }
 struct Measurement {
-    addr: String,
+    server_info: ServerInfo,
     result: NtpResult,
 }
 
-fn add_servers_from_host(time_servers: &mut Vec<String>, host: &str) {
+fn add_servers_from_host(time_servers: &mut Vec<ServerInfo>, host: &str) {
     match lookup_host(host) {
         Ok(ip_addrs) => {
             for ip_addr in ip_addrs {
                 match ip_addr {
                     V4(addr) => {
                         log::debug!("Adding IPv4 address: {addr} resolved from {host}");
-                        time_servers.push(format!("{addr}:123"));
+                        time_servers.push(ServerInfo {
+                            port: 123,
+                            ip_addr: addr.to_string(),
+                            host_name: host.to_string(),
+                        });
                     },
                     V6(addr) => {
                         log::debug!("Ignoring IPv6 address: {addr} resolved from {host}");
@@ -134,103 +153,86 @@ fn add_servers_from_host(time_servers: &mut Vec<String>, host: &str) {
 }
 
 fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
-    let mut time_servers = vec![];
+    let MAX_AT_ONCE = 10;
+    let MAX_SERVERS = 100;
+
+    let mut time_servers: Vec<ServerInfo> = vec![];
     add_servers_from_host(&mut time_servers, "time.google.com");
+    add_servers_from_host(&mut time_servers, "ntp.qix.ca");
+    add_servers_from_host(&mut time_servers, "ntp.nict.jp");
+    add_servers_from_host(&mut time_servers, "pool.ntp.org");
+    add_servers_from_host(&mut time_servers, "time.cloudflare.com");
+    add_servers_from_host(&mut time_servers, "ntp.fizyka.umk.pl");
+    add_servers_from_host(&mut time_servers, "time.apple.com");
+    add_servers_from_host(&mut time_servers, "time.fu-berlin.de");
+    add_servers_from_host(&mut time_servers, "time.facebook.com");
 
-
-    /*let servs = [
-        "ntp.qix.ca:123",
-        "mmo1.ntp.se:123",
-        "ntp.nict.jp:123",
-        "pool.ntp.org:123",
-        "time.cloudflare.com:123",
-        "time.google.com:123",
-        "216.239.35.0:123",
-        "216.239.35.8:123",
-        "216.239.35.4:123",
-        "216.239.35.12:123",
-        "162.159.200.1:123",
-        "162.159.200.123:123",
-        "158.75.5.245:123",
-        "194.146.251.100:123",
-        "114.118.7.163:123",
-        "time.apple.com:123",
-        "time.facebook.com:123",
-        "time.fu-berlin.de:123",
-        "ntp.fizyka.umk.pl:123",
-    ];*/
     let mut avg_difference = 0;
     let mut number_of_reads = 0;
 
-    let mut results: Vec<Server> = Vec::new();
-    for serv in time_servers {
-        results.push(Server {
-            addr: serv.clone(),
-            join_handle: std::thread::spawn(move || get_time_from_single_serv(&serv)),
-        });
-    }
 
-    let mut unjoined = results;
-
-    let current_time = std::time::Instant::now();
     let mut measurements = Vec::new();
-    loop {
-        let mut idxs = Vec::new();
-        for idx in 0..unjoined.len() {
-            if unjoined[idx].join_handle.is_finished() {
-                idxs.push(idx);
-            }
-        }
-        for idx in idxs.iter().rev() {
-            let el = unjoined.remove(*idx);
-            match el.join_handle.join() {
-                Ok(Ok(result)) => {
-                    avg_difference += result.offset;
-                    number_of_reads += 1;
-                    measurements.push(Measurement {
-                        addr: el.addr,
-                        result,
-                    });
-                }
-                Ok(Err(_)) => {
-                    log::warn!("Unable to get time from server {}", el.addr);
-                }
-                Err(_) => {
-                    log::warn!("Unable to join thread");
-                }
-            }
-        }
-        if unjoined.is_empty() {
-            log::info!(
-                "All servers responded in time: {}ms",
-                current_time.elapsed().as_millis()
-            );
-            break;
+    if time_servers.len() > MAX_SERVERS {
+        log::warn!("Too many servers, truncating to {}", MAX_SERVERS);
+        time_servers.truncate(MAX_SERVERS);
+    }
+    let mut number_checked = 0;
+    let mut chunked : Vec<Vec<ServerInfo>> = time_servers.chunks(MAX_AT_ONCE).map(|s| s.into()).collect();
+    for chunk in chunked {
+        log::info!("Checking [{}..{}] servers out of {}", number_checked, number_checked + chunk.len(), time_servers.len());
+        number_checked += chunk.len();
+        let mut results: Vec<Server> = Vec::new();
+        for server_info in chunk {
+            results.push(Server {
+                server_info: server_info.clone(),
+                join_handle: std::thread::spawn(move || get_time_from_single_serv(format!("{}:{}", server_info.ip_addr, server_info.port).as_str())),
+            });
         }
 
-        if current_time.elapsed() > max_timeout {
-            let str_vec: Vec<String> = unjoined.into_iter().map(|x| x.addr).collect();
-            log::warn!("Don't wait for other servers: {:?}", str_vec);
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(1));
+        let mut unjoined = results;
 
-        /*
-        for result in unjoined.iter_mut() {
-            if result.is_finished() {
-                match result.join().unwrap() {
-                    Ok(result) => {
+        let current_time = std::time::Instant::now();
+        loop {
+            let mut idxs = Vec::new();
+            for idx in 0..unjoined.len() {
+                if unjoined[idx].join_handle.is_finished() {
+                    idxs.push(idx);
+                }
+            }
+            for idx in idxs.iter().rev() {
+                let el = unjoined.remove(*idx);
+                match el.join_handle.join() {
+                    Ok(Ok(result)) => {
                         avg_difference += result.offset;
                         number_of_reads += 1;
-                        //measurements.push(result.offset);
-                        println!("Offset: {}", result.offset);
+                        measurements.push(Measurement {
+                            server_info: el.server_info,
+                            result,
+                        });
+                    }
+                    Ok(Err(_)) => {
+                        log::warn!("Unable to get time from server {}", el.server_info);
                     }
                     Err(_) => {
-                        log::warn!("Unable to get time from server");
+                        log::warn!("Unable to join thread");
                     }
                 }
             }
-        }*/
+            if unjoined.is_empty() {
+                log::info!(
+                    "All servers responded in time: {}ms",
+                    current_time.elapsed().as_millis()
+                );
+                break;
+            }
+
+            if current_time.elapsed() > max_timeout {
+                let str_vec: Vec<ServerInfo> = unjoined.into_iter().map(|x| x.server_info).collect();
+                log::warn!("Don't wait for other servers: {:?}", str_vec);
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
     }
 
     let mut avg_error = 0.0;
@@ -239,9 +241,9 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
         avg_difference /= number_of_reads;
 
         for measurement in measurements.iter() {
-            println!(
+            log::info!(
                 "Server {}, Offset: {}ms, Roundtrip {}ms",
-                measurement.addr,
+                measurement.server_info,
                 measurement.result.offset as f64 / 1000.0,
                 measurement.result.roundtrip as f64 / 1000.0
             );
