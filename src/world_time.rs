@@ -112,7 +112,7 @@ struct Measurement {
 }
 
 fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
-    let mut servs: Vec<String> = lookup_host("time.google.com")
+    let servs: Vec<String> = lookup_host("time.google.com")
         .unwrap()
         .iter()
         .map(|ip| format!("{}:123", ip))

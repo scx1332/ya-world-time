@@ -1,11 +1,11 @@
-use std::ops::Sub;
-use chrono::*;
-use winapi::shared::minwindef::WORD;
 use super::error::SystemSetTimeError;
+use chrono::*;
+use std::ops::Sub;
+use winapi::shared::minwindef::WORD;
 
 pub fn set_system_time_windows(date_time: DateTime<Utc>) -> Result<(), SystemSetTimeError> {
     //fix rounding to millis
-    date_time.sub(Duration::microseconds(500));
+    let date_time = date_time.sub(Duration::microseconds(500));
     let s = winapi::um::minwinbase::SYSTEMTIME {
         wYear: date_time.year() as WORD,
         wMonth: date_time.month() as WORD,

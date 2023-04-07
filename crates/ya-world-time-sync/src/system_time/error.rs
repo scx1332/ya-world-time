@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum SystemSetTimeError {
     OperatingSystemNotSupported,
@@ -9,6 +10,9 @@ pub enum SystemSetTimeError {
 
 impl fmt::Display for SystemSetTimeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Error setting system time, probably no permission for setting time")
+        write!(
+            f,
+            "Error setting system time, probably no permission for setting time"
+        )
     }
 }
