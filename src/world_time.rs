@@ -267,7 +267,7 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
         let harmonic_avg = harmonic_sum / harmonic_norm;
         let harmonic_error = (1.0 / harmonic_norm).sqrt();
 
-        let additional_systematic_error = 500.0;
+        let additional_systematic_error = 200.0;
         let roundtrip_to_error_multiplier = 5.0;
 
         log::info!(
