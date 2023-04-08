@@ -1,5 +1,6 @@
 use dns_lookup::lookup_host;
 use sntpc::{Error, NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result};
+use std::env;
 use std::fmt::Display;
 use std::mem::MaybeUninit;
 use std::net::IpAddr::{V4, V6};
@@ -157,15 +158,28 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
     const MAX_SERVERS: usize = 100;
 
     let mut time_servers: Vec<ServerInfo> = vec![];
-    add_servers_from_host(&mut time_servers, "time.google.com");
-    add_servers_from_host(&mut time_servers, "ntp.qix.ca");
-    add_servers_from_host(&mut time_servers, "ntp.nict.jp");
-    add_servers_from_host(&mut time_servers, "pool.ntp.org");
-    add_servers_from_host(&mut time_servers, "time.cloudflare.com");
-    add_servers_from_host(&mut time_servers, "ntp.fizyka.umk.pl");
-    add_servers_from_host(&mut time_servers, "time.apple.com");
-    add_servers_from_host(&mut time_servers, "time.fu-berlin.de");
-    add_servers_from_host(&mut time_servers, "time.facebook.com");
+
+    let default_hosts = vec![
+        "time.google.com",
+        "ntp.qix.ca",
+        "ntp.nict.jp",
+        "pool.ntp.org",
+        "time.cloudflare.com",
+        "ntp.fizyka.umk.pl",
+        "time.apple.com",
+        "time.fu-berlin.de",
+        "time.facebook.com",
+    ];
+
+    if let Ok(time_server_hosts) = env::var("TIME_SERVER_HOSTS") {
+        for serv in time_server_hosts.split(';') {
+            add_servers_from_host(&mut time_servers, serv.trim());
+        }
+    } else {
+        for serv in default_hosts {
+            add_servers_from_host(&mut time_servers, serv);
+        }
+    }
 
     let mut avg_difference = 0;
     let mut number_of_reads = 0;
@@ -278,7 +292,10 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
 
         WorldTimer {
             offset: avg_difference,
-            precision: Some((harmonic_error / roundtrip_to_error_multiplier + additional_systematic_error) as i64),
+            precision: Some(
+                (harmonic_error / roundtrip_to_error_multiplier + additional_systematic_error)
+                    as i64,
+            ),
         }
     } else {
         log::warn!("No time servers available");
