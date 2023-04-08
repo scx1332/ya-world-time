@@ -102,7 +102,7 @@ pub fn world_time_wrapper() -> &'static WorldTimerWrapper {
 }
 
 pub fn init_world_time() {
-    let world_time = get_time(std::time::Duration::from_millis(1000));
+    let world_time = get_time();
     *world_time_wrapper().world_timer.lock().unwrap() = world_time;
 }
 
@@ -153,9 +153,24 @@ fn add_servers_from_host(time_servers: &mut Vec<ServerInfo>, host: &str) {
     }
 }
 
-fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
-    const MAX_AT_ONCE: usize = 50;
-    const MAX_SERVERS: usize = 100;
+fn get_time() -> WorldTimer {
+    //const MAX_AT_ONCE: usize = 50;
+    //const MAX_SERVERS: usize = 100;
+
+    let max_at_once = env::var("YA_WORLD_TIME_MAX_AT_ONCE")
+        .unwrap_or("50".to_string())
+        .parse::<usize>()
+        .expect("YA_WORLD_TIME_MAX_AT_ONCE cannot parse to usize");
+    let max_total = env::var("YA_WORLD_TIME_MAX_TOTAL")
+        .unwrap_or("100".to_string())
+        .parse::<usize>()
+        .expect("YA_WORLD_TIME_MAX_TOTAL cannot parse to usize");
+    let max_timeout = std::time::Duration::from_millis(
+        env::var("YA_WORLD_TIME_MAX_TIMEOUT")
+            .unwrap_or("300".to_string())
+            .parse::<u64>()
+            .expect("YA_WORLD_TIME_MAX_TIMEOUT cannot parse to usize"),
+    );
 
     let mut time_servers: Vec<ServerInfo> = vec![];
 
@@ -171,7 +186,7 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
         "time.facebook.com",
     ];
 
-    if let Ok(time_server_hosts) = env::var("TIME_SERVER_HOSTS") {
+    if let Ok(time_server_hosts) = env::var("YA_WORLD_TIME_SERVER_HOSTS") {
         for serv in time_server_hosts.split(';') {
             add_servers_from_host(&mut time_servers, serv.trim());
         }
@@ -185,13 +200,13 @@ fn get_time(max_timeout: std::time::Duration) -> WorldTimer {
     let mut number_of_reads = 0;
 
     let mut measurements = Vec::new();
-    if time_servers.len() > MAX_SERVERS {
-        log::warn!("Too many servers, truncating to {}", MAX_SERVERS);
-        time_servers.truncate(MAX_SERVERS);
+    if time_servers.len() > max_total {
+        log::warn!("Too many servers, truncating to {}", max_total);
+        time_servers.truncate(max_total);
     }
     let mut number_checked = 0;
     let chunked: Vec<Vec<ServerInfo>> =
-        time_servers.chunks(MAX_AT_ONCE).map(|s| s.into()).collect();
+        time_servers.chunks(max_at_once).map(|s| s.into()).collect();
     for chunk in chunked {
         log::info!(
             "Checking [{}..{}] servers out of {}",

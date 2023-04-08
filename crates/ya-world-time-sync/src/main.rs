@@ -20,10 +20,14 @@ async fn main() -> std::io::Result<()> {
     let current_time = world_time().utc_time();
 
     let res = set_system_time(current_time);
+    let world_timer = world_time();
     if let Err(err) = res {
         log::error!("Error occurred when settings system time: {}", err);
     } else {
-        log::info!("System time set. Current time: {}", world_time().utc_time());
+        log::info!("System time set. Current time: {}", world_timer.utc_time());
+    }
+    if let Some(precision) = world_timer.precision {
+        println!("{},{},{}", world_timer.utc_time().format("%Y-%m-%d %H:%M:%S"), world_timer.offset, precision);
     }
     Ok(())
 }
