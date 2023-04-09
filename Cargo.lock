@@ -719,7 +719,7 @@ checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
 
 [[package]]
 name = "ya-world-time"
-version = "0.1.1"
+version = "0.1.3"
 dependencies = [
  "chrono",
  "dns-lookup",
@@ -729,7 +729,7 @@ dependencies = [
 
 [[package]]
 name = "ya-world-time-sync"
-version = "0.1.1"
+version = "0.1.3"
 dependencies = [
  "chrono",
  "env_logger",
