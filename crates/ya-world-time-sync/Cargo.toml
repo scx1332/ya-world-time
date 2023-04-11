@@ -7,7 +7,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-ya-world-time = { path = "../.." }
+ya-world-time = { path = "../..", version = "0.1.3" }
 env_logger = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros", "net"] }
 sntpc = { workspace = true, features = ["utils"] }
